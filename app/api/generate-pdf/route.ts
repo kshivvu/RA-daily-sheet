@@ -56,11 +56,13 @@ export async function POST(req: Request) {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
-    await page.waitForFunction(() => document.fonts.ready);
+    await page.evaluateHandle("document.fonts.ready");
+    await page.waitForFunction("window.__RAJ_MATH_RENDERED__ === true", { timeout: 5000 });
 
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
+      preferCSSPageSize: false,
       margin: { top: "10mm", bottom: "10mm", left: "12mm", right: "12mm" }
     });
 

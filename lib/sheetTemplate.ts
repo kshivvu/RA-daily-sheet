@@ -1,3 +1,5 @@
+import katex from "katex";
+
 export type Difficulty = "Easy" | "Medium" | "Hard";
 
 export type SheetQuestion = {
@@ -64,6 +66,34 @@ function escapeHtml(value: string | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
+function renderMathHtml(value: string): string {
+  const pattern = /\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]/g;
+  let html = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(value)) !== null) {
+    html += escapeHtml(value.slice(lastIndex, match.index));
+    const expression = match[1] ?? match[2] ?? "";
+    const displayMode = match[2] !== undefined;
+
+    try {
+      html += katex.renderToString(expression, {
+        displayMode,
+        throwOnError: false,
+        strict: false
+      });
+    } catch {
+      html += escapeHtml(match[0]);
+    }
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  html += escapeHtml(value.slice(lastIndex));
+  return html;
+}
+
 function formatDate(value: string): string {
   if (!value) return "";
   const [year, month, day] = value.split("-");
@@ -94,7 +124,7 @@ function renderQuestion(question: SheetQuestion, number: number): string {
   return `
     <div class="question">
       <div class="q-num">Q.${number}</div>
-      <div class="q-text">${escapeHtml(question.text)}${diagram}</div>
+      <div class="q-text">${renderMathHtml(question.text)}${diagram}</div>
       <div class="difficulty"><span class="diff-badge">${difficultyLabel(question.difficulty)}</span></div>
     </div>`;
 }
@@ -139,16 +169,17 @@ ${katexCSS}
   body {
     font-family: 'Montserrat', sans-serif;
     background: #f0f0f0;
-    padding: 20px;
+    padding: 0;
   }
 
   .page {
-    width: 210mm;
-    min-height: 297mm;
+    width: 186mm;
+    min-height: 277mm;
     background: #fff;
     margin: 0 auto;
-    padding: 10mm 12mm;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.12);
+    padding: 0;
+    box-shadow: none;
+    overflow: hidden;
   }
 
   .header {
@@ -371,6 +402,7 @@ ${katexCSS}
 </div>
 ${katexScripts}
 <script>
+  window.__RAJ_MATH_RENDERED__ = false;
   if (typeof renderMathInElement === 'function') {
     renderMathInElement(document.body, {
       delimiters: [
@@ -379,6 +411,7 @@ ${katexScripts}
       ]
     });
   }
+  window.__RAJ_MATH_RENDERED__ = true;
 </script>
 </body>
 </html>`;
