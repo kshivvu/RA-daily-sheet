@@ -43,9 +43,11 @@ function readKatexAssets() {
     const fs = nodeRequire("fs") as typeof import("fs");
     const path = nodeRequire("path") as typeof import("path");
     const katexDir = path.dirname(nodeRequire.resolve("katex/package.json"));
+    let css = fs.readFileSync(path.join(katexDir, "dist", "katex.min.css"), "utf8");
+    css = css.replace(/url\('?fonts\//g, "url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts/");
 
     katexAssets = {
-      css: fs.readFileSync(path.join(katexDir, "dist", "katex.min.css"), "utf8"),
+      css: css,
       js: fs.readFileSync(path.join(katexDir, "dist", "katex.min.js"), "utf8"),
       autoRenderJs: fs.readFileSync(path.join(katexDir, "dist", "contrib", "auto-render.min.js"), "utf8"),
       external: false
