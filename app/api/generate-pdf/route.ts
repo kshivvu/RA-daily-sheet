@@ -1,5 +1,6 @@
 import chromium from "@sparticuz/chromium";
 import { existsSync } from "fs";
+import path from "path";
 import puppeteer from "puppeteer-core";
 import { generateSheetHTML, type SheetData } from "@/lib/sheetTemplate";
 
@@ -7,7 +8,7 @@ export const runtime = "nodejs";
 
 async function getExecutablePath() {
   if (process.env.VERCEL) {
-    return chromium.executablePath();
+    return chromium.executablePath(path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin"));
   }
 
   const localPaths = [
