@@ -1,4 +1,3 @@
-import chromium from "@sparticuz/chromium";
 import { existsSync } from "fs";
 import path from "path";
 import puppeteer from "puppeteer-core";
@@ -6,7 +5,25 @@ import { generateSheetHTML, type SheetData } from "@/lib/sheetTemplate";
 
 export const runtime = "nodejs";
 
-async function getExecutablePath() {
+type ChromiumModule = typeof import("@sparticuz/chromium");
+
+async function getChromium() {
+  if (process.env.VERCEL) {
+    process.env.AWS_EXECUTION_ENV ??= "AWS_Lambda_nodejs20.x";
+    process.env.FONTCONFIG_PATH ??= "/tmp/fonts";
+    process.env.LD_LIBRARY_PATH = [
+      "/tmp/al2023/lib",
+      ...(process.env.LD_LIBRARY_PATH ?? "").split(":").filter(Boolean)
+    ]
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join(":");
+  }
+
+  const chromium = (await import("@sparticuz/chromium")).default as ChromiumModule;
+  return chromium;
+}
+
+async function getExecutablePath(chromium: ChromiumModule) {
   if (process.env.VERCEL) {
     return chromium.executablePath(path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin"));
   }
@@ -27,11 +44,12 @@ export async function POST(req: Request) {
   const data = (await req.json()) as SheetData;
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const html = generateSheetHTML(data, origin);
+  const chromium = await getChromium();
 
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
-    executablePath: await getExecutablePath(),
+    executablePath: await getExecutablePath(chromium),
     headless: true
   });
 
