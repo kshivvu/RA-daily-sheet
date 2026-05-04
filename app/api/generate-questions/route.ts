@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     hard?: number;
   };
 
-  const prompt = `You are a math teacher creating practice questions for Indian school students (CBSE/ICSE).
+const prompt = `You are a math teacher creating practice questions for Indian school students (CBSE/ICSE).
 
 Generate exactly 10 math questions for:
 - Class: ${cls ?? ""}
@@ -28,17 +28,32 @@ Rules:
 1. Questions must be appropriate for the class level
 2. Format ALL mathematical expressions in LaTeX wrapped in \\( \\) for inline math
 3. Vary question types within the chapter
-4. Escape every JSON backslash, for example write "\\\\(2x + y = 6\\\\)" not "\\(2x + y = 6\\)"
-5. Return ONLY a JSON array, no explanation, no markdown, no preamble
-
-Return format:
-[
-  { "text": "question in LaTeX", "difficulty": "Easy" },
-  { "text": "question in LaTeX", "difficulty": "Medium" }
-]`;
+4. Keep each question concise enough to fit a printed worksheet row
+5. Return exactly the requested difficulty distribution`;
 
   try {
-    const raw = await callGemini(prompt);
+    const raw = await callGemini(prompt, {
+      maxOutputTokens: 4096,
+      temperature: 0.35,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "ARRAY",
+        minItems: 10,
+        maxItems: 10,
+        items: {
+          type: "OBJECT",
+          properties: {
+            text: { type: "STRING" },
+            difficulty: {
+              type: "STRING",
+              enum: ["Easy", "Medium", "Hard"]
+            }
+          },
+          required: ["text", "difficulty"],
+          propertyOrdering: ["text", "difficulty"]
+        }
+      }
+    });
     const clean = raw.replace(/```json|```/g, "").trim();
     let questions: GeneratedQuestion[];
     try {
@@ -56,6 +71,11 @@ Return format:
         throw parseError;
       }
     }
+
+    if (!Array.isArray(questions) || questions.length !== 10) {
+      throw new Error(`Gemini returned ${Array.isArray(questions) ? questions.length : "non-array"} questions instead of 10`);
+    }
+
     return Response.json({ questions });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

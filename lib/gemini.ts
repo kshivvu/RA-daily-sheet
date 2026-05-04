@@ -1,4 +1,11 @@
-export async function callGemini(prompt: string): Promise<string> {
+type GeminiGenerationConfig = {
+  maxOutputTokens?: number;
+  temperature?: number;
+  responseMimeType?: string;
+  responseSchema?: unknown;
+};
+
+export async function callGemini(prompt: string, config: GeminiGenerationConfig = {}): Promise<string> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
@@ -17,8 +24,10 @@ export async function callGemini(prompt: string): Promise<string> {
           }
         ],
         generationConfig: {
-          maxOutputTokens: 2048,
-          temperature: 0.3
+          maxOutputTokens: config.maxOutputTokens ?? 2048,
+          temperature: config.temperature ?? 0.3,
+          ...(config.responseMimeType ? { responseMimeType: config.responseMimeType } : {}),
+          ...(config.responseSchema ? { responseSchema: config.responseSchema } : {})
         }
       })
     }
