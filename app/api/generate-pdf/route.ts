@@ -56,8 +56,18 @@ export async function POST(req: Request) {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
-    await page.evaluateHandle("document.fonts.ready");
-    await page.waitForFunction("window.__RAJ_MATH_RENDERED__ === true", { timeout: 5000 });
+    await page.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        if (document.fonts) {
+          document.fonts.ready.then(() => resolve());
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // Extra wait for math rendering
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const pdf = await page.pdf({
       format: "A4",

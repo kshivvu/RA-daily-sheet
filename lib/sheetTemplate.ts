@@ -44,7 +44,18 @@ function readKatexAssets() {
     const path = nodeRequire("path") as typeof import("path");
     const katexDir = path.dirname(nodeRequire.resolve("katex/package.json"));
     let css = fs.readFileSync(path.join(katexDir, "dist", "katex.min.css"), "utf8");
-    css = css.replace(/url\('?fonts\//g, "url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts/");
+    
+    const fontsDir = path.join(katexDir, "dist", "fonts");
+    css = css.replace(/url\((?:'|")?fonts\/([^)"']+)(?:'|")?\)/g, (match, fontFile) => {
+      const fontPath = path.join(fontsDir, fontFile);
+      if (fs.existsSync(fontPath)) {
+        const fontData = fs.readFileSync(fontPath).toString("base64");
+        const ext = path.extname(fontFile).slice(1);
+        const mimeType = ext === "woff2" ? "font/woff2" : ext === "woff" ? "font/woff" : "font/truetype";
+        return `url(data:${mimeType};base64,${fontData})`;
+      }
+      return match;
+    });
 
     katexAssets = {
       css: css,
@@ -410,7 +421,8 @@ ${katexScripts}
       delimiters: [
         {left: "\\\\(", right: "\\\\)", display: false},
         {left: "\\\\[", right: "\\\\]", display: true}
-      ]
+      ],
+      throwOnError: false
     });
   }
   window.__RAJ_MATH_RENDERED__ = true;
