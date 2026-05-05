@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { RenderedMath } from "@/components/RenderedMath";
 import { SheetPreview } from "@/components/SheetPreview";
 import type { Difficulty, SheetData, SheetQuestion } from "@/lib/sheetTemplate";
@@ -70,8 +70,24 @@ export default function Home() {
   const [mix, setMix] = useState({ easy: 3, medium: 4, hard: 3 });
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    const savedFontSize = localStorage.getItem("raj_academy_font_size") as SheetData["fontSize"];
+    if (savedFontSize) {
+      setData((current) => ({ ...current, fontSize: savedFontSize }));
+    } else {
+      setData((current) => ({ ...current, fontSize: "medium" }));
+    }
+  }, []);
+
+  function updateFontSize(size: NonNullable<SheetData["fontSize"]>) {
+    setData((current) => ({ ...current, fontSize: size }));
+    localStorage.setItem("raj_academy_font_size", size);
+  }
 
   const previewData = useMemo(() => data, [data]);
   const mixTotal = mix.easy + mix.medium + mix.hard;
@@ -132,6 +148,72 @@ export default function Home() {
       showToast("Could not enhance, please try again");
     } finally {
       setEnhancing((current) => ({ ...current, [key]: false }));
+    }
+  }
+
+  async function handleScan(file: File | undefined) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      showToast("Use a JPG or PNG under 10MB");
+      return;
+    }
+
+    try {
+      const imageUrl = await fileToDataUrl(file);
+      setScannedImage(imageUrl);
+    } catch {
+      showToast("Could not preview image");
+    }
+
+    setIsScanning(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/scan-sheet", {
+        method: "POST",
+        body: formData
+      });
+
+      const resData = await res.json();
+
+      if (resData.success) {
+        // Map questions into sections A (1-3), B (4-7), C (8-10)
+        const sectionA = resData.questions.slice(0, 3);
+        const sectionB = resData.questions.slice(3, 7);
+        const sectionC = resData.questions.slice(7, 10);
+
+        setData((current) => ({
+          ...current,
+          sections: [
+            {
+              ...current.sections[0],
+              questions: current.sections[0].questions.map((q, i) => ({ ...q, ...(sectionA[i] || {}) }))
+            },
+            {
+              ...current.sections[1],
+              questions: current.sections[1].questions.map((q, i) => ({ ...q, ...(sectionB[i] || {}) }))
+            },
+            {
+              ...current.sections[2],
+              questions: current.sections[2].questions.map((q, i) => ({ ...q, ...(sectionC[i] || {}) }))
+            }
+          ]
+        }));
+
+        if (resData.questions.length >= 10) {
+          showToast(`10 questions loaded!`);
+        } else {
+          showToast(`${resData.questions.length} questions found. Please fill remaining manually.`);
+        }
+      } else {
+        showToast("Could not read sheet. Please try again with better lighting.");
+      }
+    } catch (err) {
+      showToast("Could not read sheet. Please try again with better lighting.");
+    } finally {
+      setIsScanning(false);
     }
   }
 
@@ -271,6 +353,62 @@ export default function Home() {
                 Tomorrow&apos;s Topic
                 <input value={data.tomorrowTopic} onChange={(event) => updateMeta("tomorrowTopic", event.target.value)} className="mt-1 h-11 w-full border-0 border-b border-black px-0 text-base outline-none" />
               </label>
+              <div className="block pt-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em]">Font Size</span>
+                <div className="flex gap-2">
+                  {(["small", "medium", "large", "xlarge"] as const).map((size) => {
+                    const labels = { small: "Small", medium: "Medium", large: "Large", xlarge: "Extra Large" };
+                    const isSelected = (data.fontSize || "medium") === size;
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => updateFontSize(size)}
+                        className={`flex-1 border px-2 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors ${
+                          isSelected ? "border-black bg-black text-white" : "border-black bg-white text-black hover:bg-neutral-100"
+                        }`}
+                      >
+                        {labels[size]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 border-t-2 border-black pt-5">
+              <h2 className="text-xs font-bold uppercase tracking-[0.18em]">Scan Handwritten Sheet</h2>
+              <div className="border-2 border-dashed border-neutral-300 p-6 text-center transition-colors focus-within:border-black hover:border-black">
+                {scannedImage && (
+                  <div className="mb-4 flex justify-center">
+                    <img src={scannedImage} alt="Scanned sheet" className="max-h-32 object-contain" />
+                  </div>
+                )}
+                <label className={`flex min-h-12 w-full cursor-pointer items-center justify-center bg-black px-4 py-4 font-playfair text-base font-semibold text-white transition-opacity hover:opacity-90 ${isScanning ? "opacity-50 pointer-events-none" : ""}`}>
+                  {isScanning ? "Reading your questions, please wait..." : "📷 Scan Handwritten Sheet"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    disabled={isScanning}
+                    onChange={(event) => {
+                      handleScan(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+                <div className="mt-4 text-left text-xs font-medium text-neutral-500 leading-relaxed">
+                  <p className="font-bold text-neutral-700">Tips for best results:</p>
+                  <ul className="mt-1 list-inside list-disc">
+                    <li>Use good lighting — natural light works best</li>
+                    <li>Keep paper flat, no shadows</li>
+                    <li>Write clearly with dark pen on white paper</li>
+                    <li>Number questions 1–10 clearly</li>
+                    <li>Hold tablet steady when taking photo</li>
+                  </ul>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4 border-y-2 border-black py-5">

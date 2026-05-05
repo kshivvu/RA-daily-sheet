@@ -20,6 +20,7 @@ export type SheetData = {
   chapter: string;
   date: string;
   tomorrowTopic: string;
+  fontSize?: "small" | "medium" | "large" | "xlarge";
   sections: SheetSection[];
 };
 
@@ -167,6 +168,14 @@ export function generateSheetHTML(data: SheetData, baseUrl: string): string {
     : `<script>${katexJS}</script>
 <script>${autoRenderJs}</script>`;
 
+  const fontSizeMap = {
+    small: { question: '9px', lineHeight: '1.4' },
+    medium: { question: '11px', lineHeight: '1.5' },
+    large: { question: '13px', lineHeight: '1.6' },
+    xlarge: { question: '15px', lineHeight: '1.7' }
+  };
+  const { question, lineHeight } = fontSizeMap[data.fontSize ?? 'medium'];
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -204,12 +213,12 @@ ${katexCSS}
     margin-bottom: 6px;
   }
 
-  .logo-area { display: flex; align-items: center; gap: 12px; }
-  .logo-svg { width: 68px; height: 68px; object-fit: cover; object-position: center; display: block; }
+  .logo-area { display: flex; align-items: center; gap: 14px; }
+  .logo-svg { width: 110px; height: 110px; object-fit: cover; object-position: center; display: block; }
 
   .brand-text h1 { white-space: nowrap;
     font-family: 'Playfair Display', serif;
-    font-size: 26px;
+    font-size: 36px;
     font-weight: 700;
     color: #000;
     letter-spacing: 0px;
@@ -307,8 +316,8 @@ ${katexCSS}
 
   .question:last-child { border-bottom: none; }
 
-  .q-num { font-size: 9.5px; font-weight: 700; color: #000; padding-top: 1px; }
-  .q-text { font-size: 10px; color: #111; line-height: 1.5; }
+  .q-num { font-size: calc(${question} + 1px); font-weight: 700; color: #000; padding-top: 1px; }
+  .q-text { font-size: ${question}; color: #111; line-height: ${lineHeight}; }
   .q-text .katex { font-size: 1em; }
   .diagram-img { display: block; max-width: 100%; max-height: 120px; object-fit: contain; margin-top: 6px; border: 1px solid #ccc; }
 
