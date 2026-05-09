@@ -43,7 +43,8 @@ function readKatexAssets() {
     const nodeRequire = eval("require") as NodeRequire;
     const fs = nodeRequire("fs") as typeof import("fs");
     const path = nodeRequire("path") as typeof import("path");
-    const katexDir = path.dirname(nodeRequire.resolve("katex/package.json"));
+    
+    const katexDir = path.join(process.cwd(), "node_modules", "katex");
     let css = fs.readFileSync(path.join(katexDir, "dist", "katex.min.css"), "utf8");
     
     const fontsDir = path.join(katexDir, "dist", "fonts");
@@ -64,7 +65,8 @@ function readKatexAssets() {
       autoRenderJs: fs.readFileSync(path.join(katexDir, "dist", "contrib", "auto-render.min.js"), "utf8"),
       external: false
     };
-  } catch {
+  } catch (err) {
+    console.error("Failed to load KaTeX assets locally:", err);
     katexAssets = { css: "", js: "", autoRenderJs: "", external: false };
   }
 
