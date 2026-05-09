@@ -1,4 +1,5 @@
 import { callGeminiWithImage } from '@/lib/gemini'
+import { cleanDuplicateMath } from '@/lib/cleanMath'
 
 export async function POST(req: Request) {
   try {
@@ -24,6 +25,12 @@ For each question:
 4. Assign difficulty: Easy, Medium, or Hard based on complexity
 5. Preserve the question number order
 
+CRITICAL FORMATTING RULES:
+- Never write any expression in both plain text AND LaTeX
+- Replace plain text math entirely with LaTeX wrapped version
+- Coordinates must be: \\(A(x, y)\\) not (x,y)A\\(x,y\\)
+- Equations must be: \\(x - y = 0\\) not x - y = 0\\(x - y = 0\\)
+
 Return ONLY a valid JSON array. No explanation. No markdown. No preamble.
 
 Format:
@@ -40,7 +47,10 @@ If you cannot read a question clearly, include it with text: "[Could not read - 
     // Strip markdown code blocks if present
     const cleaned = responseText.replace(/```json|```/g, '').trim()
 
-    const questions = JSON.parse(cleaned)
+    const questions = JSON.parse(cleaned).map((q: { number: number; text: string; difficulty: string }) => ({
+      ...q,
+      text: cleanDuplicateMath(q.text)
+    }))
     return Response.json({ success: true, questions })
   } catch (err) {
     console.error('Scan error:', err)

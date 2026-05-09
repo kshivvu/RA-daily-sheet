@@ -1,4 +1,5 @@
 import { callGemini } from "@/lib/gemini";
+import { cleanDuplicateMath } from "@/lib/cleanMath";
 import type { Difficulty } from "@/lib/sheetTemplate";
 
 export const runtime = "nodejs";
@@ -29,7 +30,13 @@ Rules:
 2. Format ALL mathematical expressions in LaTeX wrapped in \\( \\) for inline math
 3. Vary question types within the chapter
 4. Keep each question concise enough to fit a printed worksheet row
-5. Return exactly the requested difficulty distribution`;
+5. Return exactly the requested difficulty distribution
+
+CRITICAL FORMATTING RULES:
+- Never duplicate any mathematical expression (no plain text + LaTeX of same thing)
+- All coordinates, equations, ratios must appear in LaTeX only: \\( \\)
+- Example correct: "Find the distance between \\(A(2, 3)\\) and \\(B(4, 1)\\)"
+- Example wrong: "Find the distance between (2, 3)A\\(2, 3\\) and (4, 1)B\\(4,1\\)"`;
 
   try {
     const raw = await callGemini(prompt, {
@@ -57,7 +64,10 @@ Rules:
     const clean = raw.replace(/```json|```/g, "").trim();
     let questions: GeneratedQuestion[];
     try {
-      questions = JSON.parse(clean) as GeneratedQuestion[];
+      questions = JSON.parse(clean).map((q: GeneratedQuestion) => ({
+        ...q,
+        text: cleanDuplicateMath(q.text)
+      })) as GeneratedQuestion[];
     } catch (parseError) {
       const repaired = clean.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
       try {
