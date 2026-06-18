@@ -43,7 +43,7 @@ async function getExecutablePath(chromium: ChromiumModule) {
 export async function POST(req: Request) {
   const data = (await req.json()) as SheetData;
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
-  const html = generateSheetHTML(data, origin);
+  const html = generateSheetHTML(data, origin, true);
   const chromium = await getChromium();
 
   const browser = await puppeteer.launch({

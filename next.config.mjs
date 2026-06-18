@@ -2,7 +2,10 @@
 const nextConfig = {
   experimental: {
     outputFileTracingIncludes: {
-      "/api/generate-pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"]
+      "/api/generate-pdf": [
+        "./node_modules/@sparticuz/chromium/bin/**/*",
+        "./node_modules/katex/dist/**/*"
+      ]
     }
   }
 };

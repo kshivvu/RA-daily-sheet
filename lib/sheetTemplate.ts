@@ -25,19 +25,20 @@ export type SheetData = {
 };
 
 const QUESTION_STARTS: Record<string, number> = { A: 1, B: 4, C: 8 };
-let katexAssets: { css: string; js: string; autoRenderJs: string; external: boolean } | null = null;
+let localKatexAssets: { css: string; js: string; autoRenderJs: string; external: boolean } | null = null;
+const cdnKatexAssets = {
+  css: "@import url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');",
+  js: "",
+  autoRenderJs: "",
+  external: true
+};
 
-function readKatexAssets() {
-  if (katexAssets) return katexAssets;
-  if (typeof window !== "undefined") {
-    katexAssets = {
-      css: "@import url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');",
-      js: "",
-      autoRenderJs: "",
-      external: true
-    };
-    return katexAssets;
+function readKatexAssets(forceLocal: boolean) {
+  if (!forceLocal) {
+    return cdnKatexAssets;
   }
+
+  if (localKatexAssets) return localKatexAssets;
 
   try {
     const nodeRequire = eval("require") as NodeRequire;
@@ -59,18 +60,19 @@ function readKatexAssets() {
       return match;
     });
 
-    katexAssets = {
+    localKatexAssets = {
       css: css,
       js: fs.readFileSync(path.join(katexDir, "dist", "katex.min.js"), "utf8"),
       autoRenderJs: fs.readFileSync(path.join(katexDir, "dist", "contrib", "auto-render.min.js"), "utf8"),
       external: false
     };
   } catch (err) {
-    console.error("Failed to load KaTeX assets locally:", err);
-    katexAssets = { css: "", js: "", autoRenderJs: "", external: false };
+    console.error("Failed to load KaTeX assets locally, falling back to CDN:", err);
+    // Safe fallback to CDN in case local files are missing in build/deployment context
+    localKatexAssets = cdnKatexAssets;
   }
 
-  return katexAssets;
+  return localKatexAssets;
 }
 
 function escapeHtml(value: string | undefined): string {
@@ -159,11 +161,11 @@ function renderSection(section: SheetSection): string {
   </div>`;
 }
 
-export function generateSheetHTML(data: SheetData, baseUrl: string): string {
+export function generateSheetHTML(data: SheetData, baseUrl: string, isPdf: boolean = false): string {
   const trimmedBaseUrl = baseUrl.replace(/\/$/, "");
   const logoUrl = trimmedBaseUrl ? `${trimmedBaseUrl}/logo.jpg.png` : "/logo.jpg.png";
   const classLabel = data.class ? `${escapeHtml(data.class)}th` : "";
-  const { css: katexCSS, js: katexJS, autoRenderJs, external } = readKatexAssets();
+  const { css: katexCSS, js: katexJS, autoRenderJs, external } = readKatexAssets(isPdf);
   const katexScripts = external
     ? `<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>`
